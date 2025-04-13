@@ -1,35 +1,43 @@
-import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { ThemeProvider, createTheme } from "@mui/material/styles";
-import CssBaseline from "@mui/material/CssBaseline";
+import React, { useEffect, useState } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
-
-const theme = createTheme({
-  palette: {
-    mode: "light", // Change to "dark" for dark mode
-    primary: {
-      main: "#1976d2",
-    },
-    secondary: {
-      main: "#dc004e",
-    },
-  },
-});
+import { auth } from "./firebase";
 
 function App() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true); // to handle async auth state
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+    });
+    return () => unsubscribe(); // cleanup listener
+  }, []);
+
+  if (loading) {
+    return <div style={{ textAlign: "center", padding: "20px" }}>Loading...</div>;
+  }
+
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Router>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/login" element={<Login />} />
-        </Routes>
-      </Router>
-    </ThemeProvider>
+    <Router>
+      <Routes>
+        <Route
+          path="/"
+          element={user ? <Home /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/register"
+          element={!user ? <Register /> : <Navigate to="/" replace />}
+        />
+        <Route
+          path="/login"
+          element={!user ? <Login /> : <Navigate to="/" replace />}
+        />
+      </Routes>
+    </Router>
   );
 }
 

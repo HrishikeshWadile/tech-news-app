@@ -1,192 +1,137 @@
-// src/pages/Home.js
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { auth } from "../firebase";
-import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import useGeminiNews from "../hooks/useGeminiNews";
-import {
-  AppBar,
-  Toolbar,
-  IconButton,
-  Typography,
-  Drawer,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Card,
-  CardContent,
-  Box,
-  Modal,
-  Divider,
-  Button,
-} from "@mui/material";
-import {
-  Menu as MenuIcon,
-  Favorite,
-  Bookmark,
-  ExitToApp,
-  ThumbUp,
-  Share,
-} from "@mui/icons-material";
+import { FiMenu, FiThumbsUp, FiBookmark, FiShare2, FiLogOut, FiArrowLeft } from "react-icons/fi";
+import "./Home.css";
+import { dummyNews } from "./dummyNews";
 
-function Home() {
+export default function Home() {
   const navigate = useNavigate();
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const { news, loadMore } = useGeminiNews();
-  const [selectedArticle, setSelectedArticle] = useState(null);
-  const [openModal, setOpenModal] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedNews, setSelectedNews] = useState(null);
+  const [likedPosts, setLikedPosts] = useState([]);
+  const [savedPosts, setSavedPosts] = useState([]);
+  const [currentView, setCurrentView] = useState("home"); // Tracks the current view: 'home', 'likes', or 'saved'
 
-  const logout = async () => {
-    await signOut(auth);
+  const handleLogout = async () => {
+    await auth.signOut();
     navigate("/login");
   };
 
-  const handleScroll = () => {
-    if (
-      window.innerHeight + document.documentElement.scrollTop ===
-      document.documentElement.offsetHeight
-    ) {
-      loadMore();
+  const toggleLike = (id) => {
+    setLikedPosts((prev) =>
+      prev.includes(id) ? prev.filter((postId) => postId !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSave = (id) => {
+    setSavedPosts((prev) =>
+      prev.includes(id) ? prev.filter((postId) => postId !== id) : [...prev, id]
+    );
+  };
+
+  const handleShare = (news) => {
+    const shareContent = `**${news.title}**\n\n${news.description}`;
+    if (navigator.share) {
+      navigator
+        .share({
+          title: news.title,
+          text: shareContent,
+          url: window.location.href, // Replace with the actual article URL if available
+        })
+        .then(() => console.log("Content shared successfully!"))
+        .catch((error) => console.error("Error sharing content:", error));
+    } else {
+      // Fallback: Copy the content to the clipboard
+      navigator.clipboard.writeText(shareContent).then(() => {
+        alert("Content copied to clipboard!");
+      });
     }
   };
 
-  useEffect(() => {
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  const handleArticleClick = (article) => {
-    setSelectedArticle(article);
-    setOpenModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setOpenModal(false);
-  };
+  const renderPosts = (posts) => (
+    <main className="news-grid">
+      {posts.map((news) => (
+        <div key={news.id} className="news-card">
+          <h2>{news.title}</h2>
+          <p>{news.description}</p>
+          <div className="news-actions">
+            <FiThumbsUp
+              onClick={() => toggleLike(news.id)}
+              style={{ color: likedPosts.includes(news.id) ? "red" : "black", cursor: "pointer" }}
+            />
+            <FiBookmark
+              onClick={() => toggleSave(news.id)}
+              style={{ color: savedPosts.includes(news.id) ? "blue" : "black", cursor: "pointer" }}
+            />
+            <FiShare2
+              onClick={() => handleShare(news)}
+              style={{ cursor: "pointer" }}
+            />
+          </div>
+        </div>
+      ))}
+    </main>
+  );
 
   return (
-    <div>
-      {/* AppBar with Dashboard Button */}
-      <AppBar position="sticky">
-        <Toolbar>
-          <IconButton
-            edge="start"
-            color="inherit"
-            aria-label="menu"
-            onClick={() => setDrawerOpen(true)}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Tech News
-          </Typography>
-        </Toolbar>
-      </AppBar>
+    <div className="home-container">
+      <header className="top-bar">
+        {currentView !== "home" ? (
+          <button className="menu-btn" onClick={() => setCurrentView("home")}>
+            <FiArrowLeft size={24} />
+          </button>
+        ) : (
+          <button className="menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            <FiMenu size={24} />
+          </button>
+        )}
+        <h1 className="app-title" style={{ textAlign: "center", flex: 1 }}>TechNewz</h1>
+      </header>
 
-      {/* Sidebar Drawer */}
-      <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
-        <Box sx={{ width: 250 }} role="presentation">
-          <List>
-            <ListItem button>
-              <ListItemIcon>
-                <Favorite />
-              </ListItemIcon>
-              <ListItemText primary="Liked Articles" />
-            </ListItem>
-            <ListItem button>
-              <ListItemIcon>
-                <Bookmark />
-              </ListItemIcon>
-              <ListItemText primary="Saved Articles" />
-            </ListItem>
-            <Divider />
-            <ListItem button onClick={logout}>
-              <ListItemIcon>
-                <ExitToApp />
-              </ListItemIcon>
-              <ListItemText primary="Logout" />
-            </ListItem>
-          </List>
-        </Box>
-      </Drawer>
+      {/* Sidebar */}
+      {sidebarOpen && currentView === "home" && (
+        <div className="sidebar">
+          <button className="sidebar-link" onClick={() => setCurrentView("likes")}>
+            ❤️ Likes
+          </button>
+          <button className="sidebar-link" onClick={() => setCurrentView("saved")}>
+            🔗 Saved
+          </button>
+          <button className="logout-btn" onClick={handleLogout}>
+            <FiLogOut /> Logout
+          </button>
+        </div>
+      )}
 
-      {/* News Articles */}
-      <div className="container" style={{ padding: "16px" }}>
-        <h2>Tech News</h2>
-        {news.map((article, index) => (
-          <Card
-            key={index}
-            sx={{ margin: "10px", cursor: "pointer" }}
-            onClick={() => handleArticleClick(article)}
-          >
-            <CardContent>
-              <Typography variant="h6">{article.title}</Typography>
-              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                <IconButton aria-label="like">
-                  <ThumbUp />
-                </IconButton>
-                <IconButton aria-label="save">
-                  <Bookmark />
-                </IconButton>
-                <IconButton aria-label="share">
-                  <Share />
-                </IconButton>
-              </Box>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Content */}
+      {currentView === "home" && renderPosts(dummyNews)}
+      {currentView === "likes" && renderPosts(dummyNews.filter((news) => likedPosts.includes(news.id)))}
+      {currentView === "saved" && renderPosts(dummyNews.filter((news) => savedPosts.includes(news.id)))}
 
-        {/* Article Modal */}
-        <Modal open={openModal} onClose={handleCloseModal}>
-          <Box
-            sx={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              width: "80%",
-              bgcolor: "background.paper",
-              boxShadow: 24,
-              p: 4,
-              borderRadius: 2,
-              maxHeight: "80vh",
-              overflowY: "auto",
-            }}
-          >
-            {selectedArticle && (
-              <>
-                <Typography variant="h5" gutterBottom>
-                  {selectedArticle.title}
-                </Typography>
-                <Typography variant="body1" paragraph>
-                  {selectedArticle.description || "No description available."}
-                </Typography>
-                <Divider />
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-around",
-                    mt: 2,
-                  }}
-                >
-                  <IconButton aria-label="like">
-                    <Favorite />
-                  </IconButton>
-                  <IconButton aria-label="save">
-                    <Bookmark />
-                  </IconButton>
-                  <IconButton aria-label="share">
-                    <Share />
-                  </IconButton>
-                </Box>
-              </>
-            )}
-          </Box>
-        </Modal>
-      </div>
+      {/* Modal */}
+      {selectedNews && (
+        <div className="modal-overlay" onClick={() => setSelectedNews(null)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <h2>{selectedNews.title}</h2>
+            <p>{selectedNews.description}</p>
+            <div className="modal-actions">
+              <FiThumbsUp
+                onClick={() => toggleLike(selectedNews.id)}
+                style={{ color: likedPosts.includes(selectedNews.id) ? "red" : "black", cursor: "pointer" }}
+              />
+              <FiBookmark
+                onClick={() => toggleSave(selectedNews.id)}
+                style={{ color: savedPosts.includes(selectedNews.id) ? "blue" : "black", cursor: "pointer" }}
+              />
+              <FiShare2
+                onClick={() => handleShare(selectedNews)}
+                style={{ cursor: "pointer" }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-export default Home;
